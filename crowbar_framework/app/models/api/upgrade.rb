@@ -442,6 +442,7 @@ module Api
         # For all nodes in cluster, set the pre-upgrade attribute
         upgrade_nodes = ::Node.find("state:crowbar_upgrade")
         cinder_node = nil
+        database_node = nil
         nova_node = nil
         monasca_node = nil
 
@@ -451,6 +452,11 @@ module Api
               (!node.roles.include?("pacemaker-cluster-member") ||
                   node["pacemaker"]["founder"] == node[:fqdn])
             cinder_node = node
+          end
+          if node.roles.include?("database-server") &&
+              (!node.roles.include?("pacemaker-cluster-member") ||
+                  node["pacemaker"]["founder"] == node[:fqdn])
+            database_node = node
           end
           if node.roles.include?("nova-controller") &&
               (!node.roles.include?("pacemaker-cluster-member") ||
@@ -475,6 +481,27 @@ module Api
               data: "Problem while removing Java based Monasca persister: " + e.message,
               help: "Check /var/log/crowbar/production.log at admin server " \
                 "and /var/log/crowbar/node-upgrade.log at #{monasca_node.name}."
+            }
+          )
+          # Stop here and error out
+          return
+        end
+
+        begin
+          unless database_node.nil?
+            database_node.wait_for_script_to_finish(
+              "/usr/sbin/crowbar-dump-monasca-db.sh",
+              timeouts[:dump_shutdown_monasca_db]
+            )
+            Rails.logger.info("Dump and shutdown of Monasca database sucessful.")
+          end
+        rescue StandardError => e
+          ::Crowbar::UpgradeStatus.new.end_step(
+            false,
+            services: {
+              data: "Problem while dumping/shutting down monasca database: " + e.message,
+              help: "Check /var/log/crowbar/production.log at admin server " \
+                "and /var/log/crowbar/node-upgrade.log at #{database_node.name}."
             }
           )
           # Stop here and error out
@@ -1047,6 +1074,7 @@ module Api
           "upgrade-os",
           "shutdown-services-before-upgrade",
           "delete-cinder-services-before-upgrade",
+          "dump-monasca-db",
           "monasca-cleanups",
           "evacuate-host",
           "pre-upgrade",

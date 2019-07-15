@@ -90,7 +90,8 @@ template "/usr/sbin/crowbar-shutdown-services-before-upgrade.sh" do
   variables(
     use_ha: use_ha || remote_node,
     cluster_founder: is_cluster_founder,
-    nova_controller: roles.include?("nova-controller")
+    nova_controller: roles.include?("nova-controller"),
+    monasca_server: roles.include?("monasca-server")
   )
 end
 
@@ -317,4 +318,46 @@ template "/usr/sbin/crowbar-heat-migrations-after-upgrade.sh" do
   owner "root"
   group "root"
   only_if { roles.include?("heat-server") }
+end
+
+monasca_node = search(:node, "run_list_map:monasca-server").first
+monasca_enabled = !monasca_node.nil?
+
+if monasca_enabled
+  monasca_node_fqdn = monasca_node[:fqdn]
+
+  if !monasca_node[:monasca].key?(:db_monapi)
+    # Pre proposal migrations: monasca proposal data structure looks the way it
+    # looks in Cloud 8.
+    metrics_db_user = "monapi" # hardwired in Cloud 8
+    metrics_db_password = monasca_node[:monasca][:master][:database_monapi_password]
+    grafana_db_user = "grafana" # hardwired in Cloud 8
+    grafana_db_password = monasca_node[:monasca][:master][:database_grafana_password]
+  else
+    # Post proposal migrations: monasca proposal data structure looks the way
+    # it looks in Cloud 9. We need this if the "services" upgrade step is
+    # interrupted after proposals have been migrated to their Cloud 9 schema
+    # and resumed with the new proposal data structure.
+    metrics_db_user = monasca_node[:monasca][:db_monapi][:user]
+    metrics_db_password = monasca_node[:monasca][:db_monapi][:password]
+    grafana_db_user = monasca_node[:monasca][:db_grafana][:user]
+    grafana_db_password = monasca_node[:monasca][:db_grafana][:password]
+  end
+
+  template "/usr/sbin/crowbar-dump-monasca-db.sh" do
+    source "crowbar-dump-monasca-db.sh.erb"
+    mode "0755"
+    owner "root"
+    group "root"
+    action :create
+    only_if { roles.include?("database-server") && (!use_ha || is_cluster_founder) }
+    variables(
+      monasca_enabled: monasca_enabled,
+      metrics_db_user: metrics_db_user,
+      metrics_db_password: metrics_db_password,
+      grafana_db_user: grafana_db_user,
+      grafana_db_password: grafana_db_password,
+      monasca_node: monasca_node_fqdn
+    )
+  end
 end

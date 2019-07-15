@@ -1,0 +1,65 @@
+#!/bin/bash
+#
+# This script will backup the Monasca and grafana databases
+# from the dedicated MariaDB instance on the monasca-server
+# node (where it resided up to Cloud 8) for later migration to
+# the OpenStack cloud's shared mariadb instance.
+
+LOGFILE=/var/log/crowbar/node-upgrade.log
+UPGRADEDIR=/var/lib/crowbar/upgrade
+STATEFILE=${UPGRADEDIR}/crowbar-dump-monasca-db-ok
+
+METRICS_DUMPFILE=${UPGRADEDIR}/monasca-metrics-database.dump.gz
+GRAFANA_DUMPFILE=${UPGRADEDIR}/monasca-grafana-database.dump.gz
+
+METRICS_DB_USER="<%= @metrics_db_user %>"
+METRICS_DB_PASSWORD="<%= @metrics_db_password %>"
+
+GRAFANA_DB_USER="<%= @grafana_db_user %>"
+GRAFANA_DB_PASSWORD="<%= @grafana_db_password %>"
+
+MONASCA_NODE="<%= @monasca_node %>"
+MONASCA_ENABLED="<%= @monasca_enabled %>"
+
+mkdir -p "`dirname "$LOGFILE"`"
+exec >>"$LOGFILE" 2>&1
+
+log()
+{
+    set +x
+    echo "[$(date --iso-8601=ns)] [$$] $@"
+    set -x
+}
+
+exitok()
+{
+touch $STATEFILE
+log "$BASH_SOURCE is finished."
+}
+
+log "Executing $BASH_SOURCE"
+
+set -x
+
+mkdir -p $UPGRADEDIR
+rm -f $UPGRADEDIR/crowbar-dump-monasca-db
+
+if [[ -f $STATEFILE ]] ; then
+    log "Monasca database backup is already done."
+    exit 0
+fi
+
+if [ "$MONASCA_ENABLED" = "false" ]; then
+    log "Monasca barclamp not enabled, skipping Monasca database backup."
+    exit 0
+fi
+
+set -e
+
+# Connect to the monasca-server node from the first controller node where this
+# script is running so we can store the dump right where we will need it later.
+
+mysqldump -h ${MONASCA_NODE} -u ${METRICS_DB_USER} "-p${METRICS_DB_PASSWORD}" --all-databases | gzip > $METRICS_DUMPFILE
+mysqldump -h ${MONASCA_NODE} -u ${GRAFANA_DB_USER} "-p${GRAFANA_DB_PASSWORD}" --all-databases | gzip > $GRAFANA_DUMPFILE
+
+exitok

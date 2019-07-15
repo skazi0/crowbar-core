@@ -47,6 +47,17 @@ for id in `openstack --insecure compute service list --service nova-cert -f valu
 done
 <% end %>
 
+
+
+
+<% if @monasca_server %>
+# Stop and disable Monasca's dedicated MariaDB instance on the monasca-server
+# node: as of Cloud 9 it's no longer needed.
+systemctl stop mariadb
+systemctl disable mariadb
+<% end %>
+
+
 <% if @use_ha %>
 
 <% if @cluster_founder %>
