@@ -344,20 +344,35 @@ if monasca_enabled
     grafana_db_password = monasca_node[:monasca][:db_grafana][:password]
   end
 
+  stop_db = false
+
+  if roles.include?("database-server")
+    db_user = grafana_db_user
+    db_password = grafana_db_password
+    db_type = "grafana"
+  elsif roles.include?("monasca-server")
+    db_user = metrics_db_user
+    db_password = metrics_db_password
+    db_type = "metrics"
+    stop_db = true
+  end
+
   template "/usr/sbin/crowbar-dump-monasca-db.sh" do
     source "crowbar-dump-monasca-db.sh.erb"
     mode "0755"
     owner "root"
     group "root"
     action :create
-    only_if { roles.include?("database-server") && (!use_ha || is_cluster_founder) }
+    only_if do
+      (roles.include?("database-server") || roles.include?("monasca-server")) &&
+        (!use_ha || is_cluster_founder)
+    end
     variables(
-      monasca_enabled: monasca_enabled,
-      metrics_db_user: metrics_db_user,
-      metrics_db_password: metrics_db_password,
-      grafana_db_user: grafana_db_user,
-      grafana_db_password: grafana_db_password,
-      monasca_node: monasca_node_fqdn
+      db_user: db_user,
+      db_password: db_password,
+      db_host: monasca_node_fqdn,
+      db_type: db_type,
+      stop_db: stop_db
     )
   end
 end

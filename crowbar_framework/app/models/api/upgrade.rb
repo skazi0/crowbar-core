@@ -488,8 +488,12 @@ module Api
         end
 
         begin
-          unless database_node.nil?
+          unless monasca_node.nil? || database_node.nil?
             database_node.wait_for_script_to_finish(
+              "/usr/sbin/crowbar-dump-monasca-db.sh",
+              timeouts[:dump_shutdown_monasca_db]
+            )
+            monasca_node.wait_for_script_to_finish(
               "/usr/sbin/crowbar-dump-monasca-db.sh",
               timeouts[:dump_shutdown_monasca_db]
             )
@@ -499,9 +503,10 @@ module Api
           ::Crowbar::UpgradeStatus.new.end_step(
             false,
             services: {
-              data: "Problem while dumping/shutting down monasca database: " + e.message,
-              help: "Check /var/log/crowbar/production.log at admin server " \
-                "and /var/log/crowbar/node-upgrade.log at #{database_node.name}."
+              data: "Problem while dumping/shutting down monasca databases: " + e.message,
+              help: "Check /var/log/crowbar/production.log at admin server, " \
+                "/var/log/crowbar/node-upgrade.log on #{database_node.name} and "\
+                "/var/log/crowbar/node-upgrade.log on #{monasca_node.name}."
             }
           )
           # Stop here and error out

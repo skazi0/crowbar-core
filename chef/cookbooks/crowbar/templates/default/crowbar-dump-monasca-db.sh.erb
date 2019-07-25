@@ -8,19 +8,17 @@
 LOGFILE=/var/log/crowbar/node-upgrade.log
 UPGRADEDIR=/var/lib/crowbar/upgrade
 STATEFILE=${UPGRADEDIR}/crowbar-dump-monasca-db-ok
+DBNAME=<%= @db_name %>
 
-METRICS_DUMPFILE=${UPGRADEDIR}/monasca-metrics-database.dump.gz
-GRAFANA_DUMPFILE=${UPGRADEDIR}/monasca-grafana-database.dump.gz
+DUMPFILE=${UPGRADEDIR}/monasca-${DBNAME}-database.dump.gz
 
-METRICS_DB_USER="<%= @metrics_db_user %>"
-METRICS_DB_PASSWORD="<%= @metrics_db_password %>"
+DB_USER="<%= @db_user %>"
+DB_PASSWORD="<%= @db_password %>"
+DB_HOST="<%= @db_host %>"
 
-GRAFANA_DB_USER="<%= @grafana_db_user %>"
-GRAFANA_DB_PASSWORD="<%= @grafana_db_password %>"
+STOP_DB="<%= @stop_db %>"
 
-MONASCA_NODE="<%= @monasca_node %>"
-MONASCA_ENABLED="<%= @monasca_enabled %>"
-
+mkdir -p "$UPGRADEDIR"
 mkdir -p "`dirname "$LOGFILE"`"
 exec >>"$LOGFILE" 2>&1
 
@@ -41,25 +39,17 @@ log "Executing $BASH_SOURCE"
 
 set -x
 
-mkdir -p $UPGRADEDIR
-rm -f $UPGRADEDIR/crowbar-dump-monasca-db
-
 if [[ -f $STATEFILE ]] ; then
-    log "Monasca database backup is already done."
-    exit 0
-fi
-
-if [ "$MONASCA_ENABLED" = "false" ]; then
-    log "Monasca barclamp not enabled, skipping Monasca database backup."
-    exit 0
+    exitok
 fi
 
 set -e
 
-# Connect to the monasca-server node from the first controller node where this
-# script is running so we can store the dump right where we will need it later.
+# Connect to the monasca-server node from the node where this script is running
+# so we can store the dump right where we will need it later. That may either
+# be the first database node (where the Grafana DB dump will go) or the
+# monasca-server node (where the Metrics DB dump will go).
 
-mysqldump -h ${MONASCA_NODE} -u ${METRICS_DB_USER} "-p${METRICS_DB_PASSWORD}" --all-databases | gzip > $METRICS_DUMPFILE
-mysqldump -h ${MONASCA_NODE} -u ${GRAFANA_DB_USER} "-p${GRAFANA_DB_PASSWORD}" --all-databases | gzip > $GRAFANA_DUMPFILE
+mysqldump -h ${DB_HOST} -u ${DB_USER} "-p${DB_PASSWORD}" --all-databases | gzip > $DUMPFILE
 
 exitok
