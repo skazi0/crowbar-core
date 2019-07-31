@@ -331,8 +331,10 @@ if monasca_enabled
     # looks in Cloud 8.
     metrics_db_user = "monapi" # hardwired in Cloud 8
     metrics_db_password = monasca_node[:monasca][:master][:database_monapi_password]
+    metrics_db_name = "mon" # hardwired in Cloud 8
     grafana_db_user = "grafana" # hardwired in Cloud 8
     grafana_db_password = monasca_node[:monasca][:master][:database_grafana_password]
+    grafana_db_name = "grafana" # hardwired in Cloud 8
   else
     # Post proposal migrations: monasca proposal data structure looks the way
     # it looks in Cloud 9. We need this if the "services" upgrade step is
@@ -340,8 +342,10 @@ if monasca_enabled
     # and resumed with the new proposal data structure.
     metrics_db_user = monasca_node[:monasca][:db_monapi][:user]
     metrics_db_password = monasca_node[:monasca][:db_monapi][:password]
+    metrics_db_name = monasca_node[:monasca][:db_monapi][:database]
     grafana_db_user = monasca_node[:monasca][:db_grafana][:user]
     grafana_db_password = monasca_node[:monasca][:db_grafana][:password]
+    grafana_db_name = monasca_node[:monasca][:db_grafana][:database]
   end
 
   stop_db = false
@@ -350,10 +354,12 @@ if monasca_enabled
     db_user = grafana_db_user
     db_password = grafana_db_password
     db_type = "grafana"
+    db_name = grafana_db_name
   elsif roles.include?("monasca-server")
     db_user = metrics_db_user
     db_password = metrics_db_password
     db_type = "metrics"
+    db_name = monasca_db_name
     stop_db = true
   end
 
@@ -372,6 +378,7 @@ if monasca_enabled
       db_password: db_password,
       db_host: monasca_node_fqdn,
       db_type: db_type,
+      db_name: db_name,
       stop_db: stop_db
     )
   end
