@@ -359,7 +359,7 @@ if monasca_enabled
     db_user = metrics_db_user
     db_password = metrics_db_password
     db_type = "metrics"
-    db_name = monasca_db_name
+    db_name = metrics_db_name
     stop_db = true
   end
 
