@@ -491,11 +491,11 @@ module Api
           unless monasca_node.nil? || database_node.nil?
             database_node.wait_for_script_to_finish(
               "/usr/sbin/crowbar-dump-monasca-db.sh",
-              timeouts[:dump_shutdown_monasca_db]
+              timeouts[:dump_monasca_db]
             )
             monasca_node.wait_for_script_to_finish(
               "/usr/sbin/crowbar-dump-monasca-db.sh",
-              timeouts[:dump_shutdown_monasca_db]
+              timeouts[:dump_monasca_db]
             )
             Rails.logger.info("Dump and shutdown of Monasca database sucessful.")
           end
