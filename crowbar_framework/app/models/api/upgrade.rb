@@ -442,7 +442,7 @@ module Api
         # For all nodes in cluster, set the pre-upgrade attribute
         upgrade_nodes = ::Node.find("state:crowbar_upgrade")
         cinder_node = nil
-        database_node = nil
+        horizon_node = nil
         nova_node = nil
         monasca_node = nil
 
@@ -453,10 +453,10 @@ module Api
                   node["pacemaker"]["founder"] == node[:fqdn])
             cinder_node = node
           end
-          if node.roles.include?("database-server") &&
+          if node.roles.include?("horizon-server") &&
               (!node.roles.include?("pacemaker-cluster-member") ||
                   node["pacemaker"]["founder"] == node[:fqdn])
-            database_node = node
+            horizon_node = node
           end
           if node.roles.include?("nova-controller") &&
               (!node.roles.include?("pacemaker-cluster-member") ||
@@ -488,11 +488,13 @@ module Api
         end
 
         begin
-          unless monasca_node.nil? || database_node.nil?
-            database_node.wait_for_script_to_finish(
+          unless horizon_node.nil?
+            horizon_node.wait_for_script_to_finish(
               "/usr/sbin/crowbar-dump-monasca-db.sh",
-              timeouts[:dump_monasca_db]
+              timeouts[:dump_grafana_db]
             )
+          end
+          unless monasca_node.nil?
             monasca_node.wait_for_script_to_finish(
               "/usr/sbin/crowbar-dump-monasca-db.sh",
               timeouts[:dump_monasca_db]
@@ -505,7 +507,7 @@ module Api
             services: {
               data: "Problem while dumping/shutting down monasca databases: " + e.message,
               help: "Check /var/log/crowbar/production.log at admin server, " \
-                "/var/log/crowbar/node-upgrade.log on #{database_node.name} and "\
+                "/var/log/crowbar/node-upgrade.log on #{horizon_node.name} and "\
                 "/var/log/crowbar/node-upgrade.log on #{monasca_node.name}."
             }
           )
