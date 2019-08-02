@@ -51,6 +51,6 @@ set -e
 # be the first database node (where the Grafana DB dump will go) or the
 # monasca-server node (where the Metrics DB dump will go).
 
-mysqldump -h ${DB_HOST} -u ${DB_USER} "-p${DB_PASSWORD}" "${DB_NAME}" | gzip > $DUMPFILE
+mysqldump -h ${DB_HOST} -u ${DB_USER} "-p${DB_PASSWORD}" --skip-add-locks "${DB_NAME}" | gzip > $DUMPFILE
 
 exitok
