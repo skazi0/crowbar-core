@@ -350,7 +350,7 @@ if monasca_enabled
 
   stop_db = false
 
-  if roles.include?("database-server")
+  if roles.include?("horizon-server")
     db_user = grafana_db_user
     db_password = grafana_db_password
     db_type = "grafana"
@@ -370,7 +370,7 @@ if monasca_enabled
     group "root"
     action :create
     only_if do
-      (roles.include?("database-server") || roles.include?("monasca-server")) &&
+      (roles.include?("horizon-server") || roles.include?("monasca-server")) &&
         (!use_ha || is_cluster_founder)
     end
     variables(
